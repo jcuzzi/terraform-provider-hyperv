@@ -153,7 +153,7 @@ $switchType = [Microsoft.HyperV.PowerShell.VMSwitchType]$vmSwitch.SwitchType
 $NetAdapterNames = @($vmSwitch.NetAdapterNames)
 #when EnablePacketDirect=true it seems to throw an exception if EnableIov=true or EnableEmbeddedTeaming=true
 
-$switchObject = Get-VMSwitch -Name $vmSwitch.Name -ErrorAction SilentlyContinue
+$switchObject = Get-VMSwitch -Name "$($vmSwitch.Name)*" | ?{$_.Name -eq $vmSwitch.Name}
 
 if ($switchObject){
 	throw "Switch already exists - $($vmSwitch.Name)"
@@ -176,7 +176,7 @@ if ($NetAdapterNames) {
 }
 New-VMSwitch @NewVmSwitchArgs
 
-$switchObject = Get-VMSwitch -Name $vmSwitch.Name -ErrorAction SilentlyContinue
+$switchObject = Get-VMSwitch -Name "$($vmSwitch.Name)" | ?{$_.Name -eq $vmSwitch.Name}
 
 if (!$switchObject){
 	throw "Switch does not exist - $($vmSwitch.Name)"
@@ -233,6 +233,10 @@ func (c *HypervClient) CreateVMSwitch(
 		DefaultQueueVrssEnabled:             defaultQueueVrssEnabled,
 	})
 
+	if err != nil {
+		return err
+	}
+
 	err = c.runFireAndForgetScript(createVMSwitchTemplate, createVMSwitchArgs{
 		VmSwitchJson: string(vmSwitchJson),
 	})
@@ -246,7 +250,7 @@ type getVMSwitchArgs struct {
 
 var getVMSwitchTemplate = template.Must(template.New("GetVMSwitch").Parse(`
 $ErrorActionPreference = 'Stop'
-$vmSwitchObject = Get-VMSwitch -Name '{{.Name}}' -ErrorAction SilentlyContinue | %{ @{
+$vmSwitchObject = Get-VMSwitch -Name '{{.Name}}*' | ?{$_.Name -eq '{{.Name}}' } | %{ @{
 	Name=$_.Name;
 	Notes=$_.Notes;
 	AllowManagementOS=$_.AllowManagementOS;
@@ -292,7 +296,7 @@ $switchType = [Microsoft.HyperV.PowerShell.VMSwitchType]$vmSwitch.SwitchType
 $NetAdapterNames = @($vmSwitch.NetAdapterNames)
 #when EnablePacketDirect=true it seems to throw an exception if EnableIov=true or EnableEmbeddedTeaming=true
 
-$switchObject = Get-VMSwitch -Name $vmSwitch.Name -ErrorAction SilentlyContinue
+$switchObject = Get-VMSwitch -Name "$($vmSwitch.Name)*" | ?{$_.Name -eq $vmSwitch.Name}
 
 if (!$switchObject){
 	throw "Switch does not exist - $($vmSwitch.Name)"
@@ -368,6 +372,10 @@ func (c *HypervClient) UpdateVMSwitch(
 		DefaultQueueVrssEnabled:             defaultQueueVrssEnabled,
 	})
 
+	if err != nil {
+		return err
+	}
+
 	err = c.runFireAndForgetScript(updateVMSwitchTemplate, updateVMSwitchArgs{
 		VmSwitchJson: string(vmSwitchJson),
 	})
@@ -381,7 +389,7 @@ type deleteVMSwitchArgs struct {
 
 var deleteVMSwitchTemplate = template.Must(template.New("DeleteVMSwitch").Parse(`
 $ErrorActionPreference = 'Stop'
-Get-VMSwitch -Name '{{.Name}}' -ErrorAction SilentlyContinue | Remove-VMSwitch -Force
+Get-VMSwitch -Name '{{.Name}}*' | ?{$_.Name -eq '{{.Name}}'} | Remove-VMSwitch -Force
 `))
 
 func (c *HypervClient) DeleteVMSwitch(name string) (err error) {

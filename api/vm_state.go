@@ -3,10 +3,11 @@ package api
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"strconv"
 	"strings"
 	"text/template"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 type VmState int
@@ -153,7 +154,7 @@ var getVmStateTemplate = template.Must(template.New("GetVmState").Parse(`
 $ErrorActionPreference = 'Stop'
 $vmName = '{{.VmName}}'
 
-$vmStateObject = Get-VM -Name $vmName -ErrorAction SilentlyContinue | %{ @{
+$vmStateObject = Get-VM -Name "$($vmName)*" | ?{$_.Name -eq $vmName } | %{ @{
 	State=$_.State;
 }}
 
@@ -245,7 +246,7 @@ Import-Module Hyper-V
 $vm = '{{.VmStateJson}}' | ConvertFrom-Json
 $vmName = '{{.VmName}}'
 $state = [Microsoft.HyperV.PowerShell.VMState]$vm.State
-$vmObject = Get-VM -Name $vmName -ErrorAction SilentlyContinue
+$vmObject = Get-VM -Name "$($vmName)*" | ?{$_.Name -eq $vmName}
 $timeout = {{.Timeout}}
 $pollPeriod = {{.PollPeriod}}
 
@@ -260,7 +261,7 @@ if ($vmObject.State -ne $state) {
 
     Wait-IsInFinalTransitionState -Name $vmName -Timeout $timeout -PollPeriod $pollPeriod
 
-    $vmObject = Get-VM -Name $vmName -ErrorAction SilentlyContinue
+    $vmObject = Get-VM -Name "$($vmName)*" | ?{$_.Name -eq $vmName}
 
     if ($vmObject.State -eq $state) {
     } elseif ($state -eq [Microsoft.HyperV.PowerShell.VMState]::Running) {
@@ -305,6 +306,10 @@ func (c *HypervClient) UpdateVmState(
 	vmStateJson, err := json.Marshal(vmState{
 		State: state,
 	})
+
+	if err != nil {
+		return err
+	}
 
 	err = c.runFireAndForgetScript(updateVmStateTemplate, updateVmStateArgs{
 		VmName:      vmName,

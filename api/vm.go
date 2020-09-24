@@ -322,7 +322,7 @@ $checkpointType = [Microsoft.HyperV.PowerShell.CheckpointType]$vm.CheckpointType
 $lockOnDisconnect = [Microsoft.HyperV.PowerShell.OnOffState]$vm.LockOnDisconnect
 $allowUnverifiedPaths = $true #Not a property set on the vm object, skips validation when changing path
 
-$vmObject = Get-VM -Name $vm.Name -ErrorAction SilentlyContinue
+$vmObject = Get-VM -Name "$($vm.Name)*" | ?{$_.Name -eq $vm.Name}
 
 if ($vmObject){
 	throw "VM already exists - $($vm.Name)"
@@ -431,6 +431,10 @@ func (c *HypervClient) CreateVm(
 		StaticMemory:                        staticMemory,
 	})
 
+	if err != nil {
+		return err
+	}
+
 	err = c.runFireAndForgetScript(createVmTemplate, createVmArgs{
 		VmJson: string(vmJson),
 	})
@@ -444,7 +448,7 @@ type getVmArgs struct {
 
 var getVmTemplate = template.Must(template.New("GetVm").Parse(`
 $ErrorActionPreference = 'Stop'
-$vmObject = Get-VM -Name '{{.Name}}' -ErrorAction SilentlyContinue | %{ @{
+$vmObject = Get-VM -Name '{{.Name}}*' | ?{$_.Name -eq '{{.Name}}' } | %{ @{
 	Name=$_.Name;
 	Generation=$_.Generation;
 	AutomaticCriticalErrorAction=$_.AutomaticCriticalErrorAction;
@@ -498,7 +502,7 @@ $automaticStopAction = [Microsoft.HyperV.PowerShell.StopAction]$vm.AutomaticStop
 $checkpointType = [Microsoft.HyperV.PowerShell.CheckpointType]$vm.CheckpointType
 $lockOnDisconnect = [Microsoft.HyperV.PowerShell.OnOffState]$vm.LockOnDisconnect
 $allowUnverifiedPaths = $true #Not a property set on the vm object, skips validation when changing path
-$vmObject = Get-VM -Name $vm.Name -ErrorAction SilentlyContinue
+$vmObject = Get-VM -Name "$($vm.Name)*" | ?{$_.Name -eq $vm.Name}
 
 if (!$vmObject){
 	throw "VM does not exist - $($vm.Name)"
@@ -591,6 +595,10 @@ func (c *HypervClient) UpdateVm(
 		StaticMemory:                        staticMemory,
 	})
 
+	if err != nil {
+		return err
+	}
+
 	err = c.runFireAndForgetScript(updateVmTemplate, updateVmArgs{
 		VmJson: string(vmJson),
 	})
@@ -604,7 +612,7 @@ type deleteVmArgs struct {
 
 var deleteVmTemplate = template.Must(template.New("DeleteVm").Parse(`
 $ErrorActionPreference = 'Stop'
-Get-VM -Name '{{.Name}}' -ErrorAction SilentlyContinue | Remove-VM -force
+Get-VM -Name '{{.Name}}*' | ?{$_.Name -eq '{{.Name}}'} | Remove-VM -force
 `))
 
 func (c *HypervClient) DeleteVm(name string) (err error) {
